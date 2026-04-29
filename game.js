@@ -11,9 +11,10 @@ const LANE_H = (PLAY_BOTTOM - PLAY_TOP) / LANE_COUNT;
 const PLAYER_X = 190;
 const SLOT_MAX = 8;
 const INITIAL_SPEED = 345;
-const SPEED_ACCELERATION = 19.00;
+const SPEED_ACCELERATION = 19.0;
 const SPEED_CAP_SECONDS = 48;
 const MAX_SPEED = INITIAL_SPEED + SPEED_ACCELERATION * SPEED_CAP_SECONDS;
+const HIGH_SCORE_KEY = "forest-spirit-run-high-score";
 
 const cropMap = {
   angel: { x: 72, y: 602, w: 258, h: 238 },
@@ -44,6 +45,22 @@ let sprites = {};
 let ready = false;
 let keys = new Set();
 let state;
+
+function loadHighScore() {
+  try {
+    return Number(localStorage.getItem(HIGH_SCORE_KEY)) || 0;
+  } catch {
+    return 0;
+  }
+}
+
+function saveHighScore(value) {
+  try {
+    localStorage.setItem(HIGH_SCORE_KEY, String(value));
+  } catch {
+    // Some privacy modes disable localStorage; the in-memory score still updates.
+  }
+}
 
 function makeSprite(img, crop) {
   const off = document.createElement("canvas");
@@ -172,6 +189,7 @@ function resetGame() {
     time: 30,
     elapsed: 0,
     bonus: 0,
+    highScore: loadHighScore(),
     combo: 0,
     speed: INITIAL_SPEED,
     spawnTimer: 0.75,
@@ -353,6 +371,7 @@ function update(dt) {
     p.vy += 180 * dt;
   });
   state.particles = state.particles.filter((p) => p.life > 0);
+  refreshHighScore();
 }
 
 function drawText(text, x, y, size, color = "#fff", align = "left") {
@@ -437,27 +456,29 @@ function drawHud() {
   drawText("TIME", 68, 22, 30);
   drawText(state.time.toFixed(1).padStart(4, "0"), 52, 58, 48, "#ffd52c");
   divider(198);
-  drawText("SCORE", 260, 22, 30);
-  drawText(String(score()).padStart(7, "0"), 226, 62, 42);
-  divider(432);
+  drawText("SCORE", 224, 22, 24);
+  drawText(String(score()).padStart(7, "0"), 224, 62, 30);
+  drawText("/", 348, 62, 30, "#ffffff");
+  drawText("HIGH", 378, 22, 24, "#ffd52c");
+  drawText(String(state.highScore).padStart(7, "0"), 378, 62, 30, "#ffd52c");
+  divider(520);
 
-  drawText("SLOT", 454, 20, 30);
+  drawText("SLOT", 542, 20, 30);
+  const slotSize = 64;
+  const slotGap = 78;
+  const slotStartX = 544;
   for (let i = 0; i < SLOT_MAX; i += 1) {
-    const x = 456 + i * 61;
+    const x = slotStartX + i * slotGap;
     ctx.strokeStyle = "#fff";
     ctx.lineWidth = 4;
-    ctx.strokeRect(x, 54, 43, 43);
-    if (state.slots[i]) drawSprite(state.slots[i].id, x + 3, 49, 38, 38);
+    ctx.strokeRect(x, 48, slotSize, slotSize);
+    if (state.slots[i]) drawSprite(state.slots[i].id, x + 5, 51, 54, 54);
   }
-  drawText(`${state.slots.length}/${SLOT_MAX}`, 1002, 64, 32);
-  divider(1130);
+  drawText(`${state.slots.length}/${SLOT_MAX}`, 1204, 64, 32);
+  divider(1264);
 
-  drawText("LAST", 1156, 22, 30);
-  if (state.lastType) drawSprite(state.lastType.id, 1196, 36, 64, 64);
-  else drawText("--", 1234, 66, 32);
-  divider(1340);
-  drawText("COMBO", 1382, 22, 30);
-  drawText(String(state.streak), 1436, 62, 50, "#ffd52c", "center");
+  drawText("COMBO", 1306, 22, 30);
+  drawText(String(state.streak), 1368, 62, 50, "#ffd52c", "center");
 }
 
 function divider(x) {
@@ -467,6 +488,13 @@ function divider(x) {
 
 function score() {
   return Math.floor(state.elapsed * 100) + state.bonus;
+}
+
+function refreshHighScore() {
+  const currentScore = score();
+  if (currentScore <= state.highScore) return;
+  state.highScore = currentScore;
+  saveHighScore(currentScore);
 }
 
 function drawSprite(id, x, y, w, h) {
